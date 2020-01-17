@@ -26,6 +26,7 @@ var logger = logrus.WithField("provider", "googleapps")
 // Client wrapper around Google Apps.
 type Client struct {
 	client *provider.HTTPClient
+	mfa string
 }
 
 // New create a new Google Apps Client
@@ -40,6 +41,7 @@ func New(idpAccount *cfg.IDPAccount) (*Client, error) {
 
 	return &Client{
 		client: client,
+		mfa: idpAccount.MFA,
 	}, nil
 }
 
@@ -77,7 +79,7 @@ func (kc *Client) Authenticate(loginDetails *creds.LoginDetails) (string, error)
 		authForm.Set("gxf", v[0])
 	}
 
-	responseDoc, err := kc.loadChallengePage(passwordURL+"?hl=en&loc=US", referingURL, authForm, loginDetails)
+	responseDoc, err := kc.loadChallengePage(passwordURL+"?hl=en&loc=US", referingURL, authForm, loginDetails, kc.mfa)
 	if err != nil {
 		return "", errors.Wrap(err, "error loading challenge page")
 	}
@@ -129,7 +131,7 @@ func (kc *Client) Authenticate(loginDetails *creds.LoginDetails) (string, error)
 		}
 		captchaForm.Set(captchaInputId, captcha)
 
-		responseDoc, err = kc.loadChallengePage(captchaURL+"?hl=en&loc=US", captchaURL, captchaForm, loginDetails)
+		responseDoc, err = kc.loadChallengePage(captchaURL+"?hl=en&loc=US", captchaURL, captchaForm, loginDetails, kc.mfa)
 		if err != nil {
 			return "", errors.Wrap(err, "error loading challenge page")
 		}
@@ -318,7 +320,7 @@ func (kc *Client) loadLoginPage(submitURL string, referer string, authForm url.V
 	return loginURL, loginForm, err
 }
 
-func (kc *Client) loadChallengePage(submitURL string, referer string, authForm url.Values, loginDetails *creds.LoginDetails) (*goquery.Document, error) {
+func (kc *Client) loadChallengePage(submitURL string, referer string, authForm url.Values, loginDetails *creds.LoginDetails, mfaType string) (*goquery.Document, error) {
 
 	req, err := http.NewRequest("POST", submitURL, strings.NewReader(authForm.Encode()))
 	if err != nil {
@@ -368,6 +370,7 @@ func (kc *Client) loadChallengePage(submitURL string, referer string, authForm u
 		logger.Debugf("secondActionURL: %s", secondActionURL)
 
 		switch {
+		case mfaType == "Alt": //Skip to alternate flow
 		case strings.Contains(secondActionURL, "challenge/totp/"): // handle TOTP challenge
 
 			var token = loginDetails.MFAToken
@@ -522,7 +525,7 @@ func (kc *Client) loadAlternateChallengePage(submitURL string, referer string, a
 		return nil, errors.Wrap(err, "unable to extract challenge form")
 	}
 
-	return kc.loadChallengePage(newActionURL, submitURL, responseForm, loginDetails)
+	return kc.loadChallengePage(newActionURL, submitURL, responseForm, loginDetails, "")
 }
 
 func (kc *Client) postJSON(submitURL string, values map[string]string, referer string) (*http.Response, error) {
