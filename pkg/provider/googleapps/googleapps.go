@@ -639,6 +639,10 @@ func extractInputsByFormQuery(doc *goquery.Document, formQuery string) (url.Valu
 		return formData, "", errors.Wrap(err, "error getting action URL")
 	}
 
+	if actionURL == "" {
+		actionURL = "https://accounts.google.com/signin/challenge/sl/password"
+	}
+
 	query = fmt.Sprintf("form%s", formQuery)
 
 	// extract form data to passthrough
