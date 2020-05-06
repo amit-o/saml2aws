@@ -149,7 +149,7 @@ func (kc *Client) Authenticate(loginDetails *creds.LoginDetails) (string, error)
 
 		loginForm.Set("Passwd", loginDetails.Password)
 
-		responseDoc, err = kc.loadChallengePage(loginURL+"?hl=en&loc=US", loginURL, loginForm, loginDetails)
+		responseDoc, err = kc.loadChallengePage(loginURL+"?hl=en&loc=US", loginURL, loginForm, loginDetails, kc.mfa)
 		if err != nil {
 			return "", errors.Wrap(err, "error loading challenge page")
 		}
