@@ -11,6 +11,8 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"os/exec"
+	"runtime"
 
 	"github.com/PuerkitoBio/goquery"
 	"github.com/pkg/errors"
@@ -435,6 +437,21 @@ func (kc *Client) loadChallengePage(submitURL string, referer string, authForm u
 
 		case strings.Contains(secondActionURL, "challenge/skotp/"): // handle one-time HOTP challenge
 			fmt.Println("Get a one-time code by visiting https://g.co/sc on another device where you can use your security key")
+			var err error
+			var url = "https://g.co/sc"
+			switch runtime.GOOS {
+				case "linux":
+					err = exec.Command("xdg-open", url).Start()
+				case "windows":
+					err = exec.Command("rundll32", "url.dll,FileProtocolHandler", url).Start()
+				case "darwin":
+					err = exec.Command("open", url).Start()
+				default:
+					err = fmt.Errorf("unsupported platform")
+			}
+			if err != nil {
+				log.Fatal(err)
+			}
 			var token = prompter.RequestSecurityCode("000 000")
 
 			responseForm.Set("Pin", token)
